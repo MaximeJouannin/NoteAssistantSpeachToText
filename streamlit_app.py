@@ -5,6 +5,7 @@ import time
 import os
 from pydub import AudioSegment
 from io import BytesIO
+import threading
 
 # Azure and OpenAI credentials
 API_KEY = "45597a66237d464faebe8745618f5717"
@@ -14,8 +15,8 @@ openai.api_key = API_KEY
 openai.api_base = RESOURCE_ENDPOINT
 openai.api_version = "2023-05-15"
 
-SPEECH_KEY = '17dcc6db4f1b496b8cf4baffacbbe598'
-SPEECH_REGION = 'westeurope'
+SPEECH_KEY = '28e83bb343234fdab27caa36e79fe5b3'
+SPEECH_REGION = 'francecentral'
 
 lang = "fr-FR"
 
@@ -24,12 +25,21 @@ if 'recognition_active' not in st.session_state:
     st.session_state.recognition_active = False
 if 'recognized_text' not in st.session_state:
     st.session_state.recognized_text = ""
+if 'recognition_thread' not in st.session_state:
+    st.session_state.recognition_thread = None
+if 'show_start_button' not in st.session_state:
+    st.session_state.show_start_button = True
+if 'show_stop_button' not in st.session_state:
+    st.session_state.show_stop_button = False
+
+# Event to control the recognition thread
+recognition_event = threading.Event()
 
 # Function to recognize speech from microphone continuously
 def recognize_from_microphone_continuous(lang):
-    st.write("Starting continuous recognition...")
+    global recognition_event
+
     print("Starting continuous recognition...")
-    
     speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
     speech_config.speech_recognition_language = lang
     audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
@@ -37,29 +47,50 @@ def recognize_from_microphone_continuous(lang):
     speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
     
     all_results = []
+    
     def handle_final_result(evt):
         all_results.append(evt.result.text)
-        st.write(f"Recognized (intermediate): {evt.result.text}")
         print(f"Recognized (intermediate): {evt.result.text}")
 
-    speech_recognizer.recognized.connect(handle_final_result)
-    speech_recognizer.start_continuous_recognition()
+    def handle_session_stopped(evt):
+        nonlocal recognizing
+        recognizing = False
 
-    st.write("Recognition started. Waiting for stop signal...")
+    recognizing = True
+
+    speech_recognizer.recognized.connect(handle_final_result)
+    speech_recognizer.session_stopped.connect(handle_session_stopped)
+    speech_recognizer.canceled.connect(handle_session_stopped)
+    
+    speech_recognizer.start_continuous_recognition()
     print("Recognition started. Waiting for stop signal...")
 
-    while st.session_state.recognition_active:
+    while recognizing and not recognition_event.is_set():
         time.sleep(0.1)  # Small delay to prevent a busy-wait loop
 
-    st.write("Stopping continuous recognition...")
     print("Stopping continuous recognition...")
     speech_recognizer.stop_continuous_recognition()
-    
+
     recognized_text = " ".join(all_results)
-    st.write(f"Recognized (final): {recognized_text}")
     print(f"Recognized (final): {recognized_text}")
-    
-    return recognized_text
+
+    st.session_state.recognized_text = recognized_text
+
+# Start the recognition in a separate thread
+def start_recognition(lang):
+    global recognition_event
+    st.session_state.recognition_active = True
+    recognition_event.clear()
+    st.session_state.recognition_thread = threading.Thread(target=recognize_from_microphone_continuous, args=(lang,))
+    st.session_state.recognition_thread.start()
+
+# Stop the recognition
+def stop_recognition():
+    global recognition_event
+    st.session_state.recognition_active = False
+    recognition_event.set()
+    if st.session_state.recognition_thread is not None:
+        st.session_state.recognition_thread.join()
 
 # Function to process recognized text with OpenAI GPT
 def process_text_with_gpt(recognized_text):
@@ -118,45 +149,48 @@ def convert_mp3_to_wav(mp3_data):
 # Streamlit UI
 st.title("Application de reconnaissance et de traitement vocal")
 
-# Start recognition button
-if not st.session_state.recognition_active and not st.session_state.recognized_text:
+# Display the appropriate button based on the state
+if st.session_state.show_start_button:
     if st.button("Démarrer la reconnaissance"):
         st.write("Recognition started by user.")
         print("Recognition started by user.")
         
-        st.session_state.recognition_active = True
+        start_recognition(lang)
+        st.session_state.show_start_button = False
+        st.session_state.show_stop_button = True
         st.experimental_rerun()
 
-# Stop recognition button
-if st.session_state.recognition_active:
+if st.session_state.show_stop_button:
     if st.button("Arrêter la reconnaissance"):
         st.write("Recognition stopped by user.")
         print("Recognition stopped by user.")
         
-        st.session_state.recognition_active = False
-        st.session_state.recognized_text = recognize_from_microphone_continuous(lang)
+        stop_recognition()
         
         st.write(f"Recognized Text: {st.session_state.recognized_text}")
         print(f"Recognized Text: {st.session_state.recognized_text}")
         
+        st.session_state.show_start_button = True
+        st.session_state.show_stop_button = False
+        
+        # Process the recognized text with GPT and synthesize speech
+        if st.session_state.recognized_text:
+            st.write("Processing the recognized text...")
+            print("Processing the recognized text...")
+            
+            st.write("Texte reconnu final :", st.session_state.recognized_text)
+            processed_text = process_text_with_gpt(st.session_state.recognized_text)
+            
+            st.write("Réponse GPT :", processed_text)
+            synthesize_speech(processed_text)
+            
+            st.write("Clearing recognized text after processing.")
+            print("Clearing recognized text after processing.")
+            
+            # Clear the recognized text after processing
+            st.session_state.recognized_text = ""
+        
         st.experimental_rerun()
-
-# Display and process recognized text
-if st.session_state.recognized_text:
-    st.write("Processing the recognized text...")
-    print("Processing the recognized text...")
-    
-    st.write("Texte reconnu final :", st.session_state.recognized_text)
-    processed_text = process_text_with_gpt(st.session_state.recognized_text)
-    
-    st.write("Réponse GPT :", processed_text)
-    synthesize_speech(processed_text)
-    
-    st.write("Clearing recognized text after processing.")
-    print("Clearing recognized text after processing.")
-    
-    # Clear the recognized text after processing
-    st.session_state.recognized_text = ""
 
 # File uploader for audio files
 uploaded_file = st.file_uploader("Choisir un fichier audio", type=["wav", "mp3"])
