@@ -3,7 +3,7 @@ pandas
 scikit-learn
 altair
 azure-cognitiveservices-speech
-openai==0.28
+openai==1.35.5
 pydub
 python-docx
 PyPDF2
