@@ -5,3 +5,5 @@ altair
 azure-cognitiveservices-speech
 openai
 pydub
+python-docx
+PyPDF2
