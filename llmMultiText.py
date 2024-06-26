@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 import os
 from io import StringIO
-from PyPDF2 import PdfFileReader
+from PyPDF2 import PdfReader
 from docx import Document
 
 # Configuration de l'API OpenAI
@@ -27,10 +27,9 @@ def process_text_with_gpt(recognized_text):
 
 # Fonction pour lire un fichier PDF
 def read_pdf(file):
-    pdf_reader = PdfFileReader(file)
+    pdf_reader = PdfReader(file)
     text = ""
-    for page_num in range(pdf_reader.getNumPages()):
-        page = pdf_reader.getPage(page_num)
+    for page in pdf_reader.pages:
         text += page.extract_text()
     return text
 

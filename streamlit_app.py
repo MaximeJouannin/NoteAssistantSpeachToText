@@ -14,7 +14,7 @@ openai.api_key = API_KEY
 openai.api_base = RESOURCE_ENDPOINT
 openai.api_version = "2023-05-15"
 
-SPEECH_KEY = '28e83bb343234fdab27caa36e79fe5b3'
+SPEECH_KEY = 'b48d398ec76644b985c461fd41e6df78'
 SPEECH_REGION = 'francecentral'
 lang = "fr-FR"
 
