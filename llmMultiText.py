@@ -17,7 +17,7 @@ openai.api_version = "2023-05-15"
 # Fonction pour traiter le texte avec GPT
 def process_text_with_gpt(recognized_text):
     responsegpt = openai.ChatCompletion.create(
-        engine="inetum-gpt-35-turbo",
+        engine="inetum-gpt-35-turbo-0613",
         messages=[
             {"role": "system", "content": "You are an assistant. Summarize the contatened provided text files and use bullet points when it's necessary."},
             {"role": "user", "content": recognized_text}
