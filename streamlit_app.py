@@ -1,7 +1,10 @@
 import streamlit as st
 import azure.cognitiveservices.speech as speechsdk
 import openai
+import queue
+import time
 import threading
+import re
 
 # Azure and OpenAI credentials
 API_KEY = "45597a66237d464faebe8745618f5717"
@@ -16,71 +19,82 @@ SPEECH_REGION = 'francecentral'
 lang = "fr-FR"
 
 # Initialize session state
-if 'recognition_active' not in st.session_state:
-    st.session_state.recognition_active = False
 if 'recognized_text' not in st.session_state:
     st.session_state.recognized_text = ""
-if 'show_start_button' not in st.session_state:
-    st.session_state.show_start_button = True
-if 'show_stop_button' not in st.session_state:
-    st.session_state.show_stop_button = False
+if 'recognition_active' not in st.session_state:
+    st.session_state.recognition_active = False
+if 'processing_triggered' not in st.session_state:
+    st.session_state.processing_triggered = False
 
 # Global variables
+text_queue = queue.Queue()
 stop_event = threading.Event()
-recognition_thread = None
 
-def recognize_from_microphone():
-    print("Starting recognition...")
-    
+def recognize_from_microphone_continuous():
+    print("Starting continuous recognition...")
+
     speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
     speech_config.speech_recognition_language = lang
     audio_config = speechsdk.audio.AudioConfig(use_default_microphone=True)
-    
+
     recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
-    
-    result = recognizer.recognize_once_async().get()
-    
-    if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-        recognized_text = result.text
-        print(f"Recognized: {recognized_text}")
-        st.session_state.recognized_text = recognized_text
-        process_and_synthesize_text(recognized_text)
-    elif result.reason == speechsdk.ResultReason.NoMatch:
-        print("No speech could be recognized.")
-    elif result.reason == speechsdk.ResultReason.Canceled:
-        cancellation_details = result.cancellation_details
-        print(f"Speech Recognition canceled: {cancellation_details.reason}")
+
+    def recognized_callback(evt):
+        if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
+            text_queue.put(evt.result.text)
+            print(f"Recognized: {evt.result.text}")
+
+    def recognizing_callback(evt):
+        print(f"Recognizing: {evt.result.text}")
+
+    def session_started(evt):
+        print(f"SESSION STARTED: {evt.session_id}")
+
+    def session_stopped(evt):
+        print(f"SESSION STOPPED: {evt.session_id}")
+
+    def canceled_callback(evt):
+        cancellation_details = evt.result.cancellation_details
+        print(f"CANCELED: {evt.result.reason}")
+        print(f"CANCELLATION REASON: {cancellation_details.reason}")
         if cancellation_details.reason == speechsdk.CancellationReason.Error:
-            print(f"Error details: {cancellation_details.error_details}")
-    
-    stop_event.set()
-    st.session_state.recognition_active = False
-    st.session_state.show_start_button = True
-    st.session_state.show_stop_button = False
+            print(f"CANCELLATION ERROR DETAILS: {cancellation_details.error_details}")
+
+    recognizer.recognized.connect(recognized_callback)
+    recognizer.recognizing.connect(recognizing_callback)
+    recognizer.session_started.connect(session_started)
+    recognizer.session_stopped.connect(session_stopped)
+    recognizer.canceled.connect(canceled_callback)
+
+    recognizer.start_continuous_recognition_async()
+
+    print("Recognition started and listening continuously...")
+
+    while not stop_event.is_set():
+        time.sleep(0.1)
+
+    recognizer.stop_continuous_recognition_async().get()
+    print("Recognition stopped.")
 
 def process_and_synthesize_text(recognized_text):
+    print(f"Processing and synthesizing text: {recognized_text}")
     processed_text = process_text_with_gpt(recognized_text)
     st.write("Réponse GPT :", processed_text)
     synthesize_speech(processed_text)
 
 def start_recognition():
-    global recognition_thread
+    global stop_event
     stop_event.clear()
     st.session_state.recognition_active = True
-    
-    recognition_thread = threading.Thread(target=recognize_from_microphone)
+    recognition_thread = threading.Thread(target=recognize_from_microphone_continuous)
     recognition_thread.start()
-    st.session_state.show_start_button = False
-    st.session_state.show_stop_button = True
 
 def stop_recognition():
-    print("Setting stop event...")
+    global stop_event
+    print("Stopping recognition...")
     stop_event.set()
-    if recognition_thread is not None:
-        recognition_thread.join()
-        print("Recognition thread joined.")
-    st.session_state.show_start_button = True
-    st.session_state.show_stop_button = False
+    st.session_state.recognition_active = False
+    print("Recognition stopped.")
 
 def process_text_with_gpt(recognized_text):
     responsegpt = openai.ChatCompletion.create(
@@ -91,7 +105,7 @@ def process_text_with_gpt(recognized_text):
         ]
     )
     text = responsegpt['choices'][0]['message']['content']
-    st.write(f"GPT Response: {text}")
+    print(f"GPT Response: {text}")
     return text
 
 def synthesize_speech(text):
@@ -111,35 +125,24 @@ def synthesize_speech(text):
 # Streamlit UI
 st.title("Application de reconnaissance et de traitement vocal")
 
-col1, col2 = st.columns(2)
-col1.button('Démarrer la reconnaissance', on_click=start_recognition, disabled=st.session_state.show_stop_button)
-col2.button('Arrêter la reconnaissance', on_click=stop_recognition, disabled=st.session_state.show_start_button)
+if not st.session_state.recognition_active:
+    if st.button('Démarrer la reconnaissance'):
+        start_recognition()
 
-if st.session_state.recognized_text:
-    st.write("Texte reconnu :", st.session_state.recognized_text)
+if st.session_state.recognition_active:
+    if st.button('Arrêter la reconnaissance'):
+        stop_recognition()
+
+# Mettre à jour l'interface utilisateur avec le texte reconnu
+if 'recognition_active' in st.session_state and st.session_state.recognition_active:
+    while not text_queue.empty():
+        text = text_queue.get()
+        st.session_state.recognized_text += f" {text}"
+        print(f"UI Updated with text: {text}")
+
+if re.search(r"\blance le traitement\b", st.session_state.recognized_text, re.IGNORECASE) and not st.session_state.processing_triggered:
+    st.session_state.processing_triggered = True
     process_and_synthesize_text(st.session_state.recognized_text)
-    st.session_state.recognized_text = ""
 
-# File uploader for audio files
-uploaded_file = st.file_uploader("Choisir un fichier audio", type=["wav", "mp3"])
-if uploaded_file is not None:
-    file_extension = uploaded_file.name.split(".")[-1]
-    if file_extension == "mp3":
-        audio = AudioSegment.from_file(BytesIO(uploaded_file.read()), format="mp3")
-        wav_path = "temp_audio_file.wav"
-        audio.export(wav_path, format="wav")
-    else:
-        wav_path = "temp_audio_file.wav"
-        with open(wav_path, "wb") as f:
-            f.write(uploaded_file.read())
-
-    audio_config = speechsdk.audio.AudioConfig(filename=wav_path)
-    speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
-    speech_recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
-
-    result = speech_recognizer.recognize_once()
-    st.write("Texte reconnu : {}".format(result.text))
-
-    processed_text = process_text_with_gpt(result.text)
-    st.write("Réponse GPT :", processed_text)
-    synthesize_speech(processed_text)
+# Afficher le texte reconnu
+st.write("Texte reconnu :", st.session_state.recognized_text)
