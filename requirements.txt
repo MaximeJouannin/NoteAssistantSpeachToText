@@ -6,4 +6,4 @@ azure-cognitiveservices-speech
 openai
 pydub
 python-docx
-pypdf2
+PyPDF2
