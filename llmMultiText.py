@@ -1,7 +1,5 @@
 import streamlit as st
-import openai
-from openai import OpenAI
-st.write(f"OpenAI library version: {openai.__version__}")
+from openai import AzureOpenAI
 import os
 from io import StringIO
 from PyPDF2 import PdfReader
@@ -10,22 +8,22 @@ from docx import Document
 # Configuration de l'API OpenAI
 API_KEY = "45597a66237d464faebe8745618f5717"
 RESOURCE_ENDPOINT = "https://inetum-open-ai-eastus.openai.azure.com/"
-openai.api_type = "azure"
-openai.api_key = API_KEY
-openai.api_base = RESOURCE_ENDPOINT
-openai.api_version = "2023-05-15"
+#openai.api_type = "azure"
+#openai.api_key = API_KEY
+#openai.api_base = RESOURCE_ENDPOINT
+#openai.api_version = "2023-05-15"
 
 # Fonction pour traiter le texte avec GPT
 def process_text_with_gpt(recognized_text):
-    client = OpenAI(api_key=API_KEY)
+    client = AzureOpenAI(api_key=API_KEY, azure_endpoint=RESOURCE_ENDPOINT, api_version="2023-05-15")
     responsegpt = client.chat.completions.create(
-        engine="inetum-gpt-35-turbo-0613",
+        model="inetum-gpt-35-turbo-0613",
         messages=[
             {"role": "system", "content": "You are an assistant. Summarize the contatened provided text files and use bullet points when it's necessary."},
             {"role": "user", "content": recognized_text}
         ]
     )
-    text = responsegpt['choices'][0]['message']['content']
+    text = responsegpt.choices[0].message.content
     return text
 
 # Fonction pour lire un fichier PDF
