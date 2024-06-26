@@ -1,5 +1,6 @@
 import streamlit as st
 import openai
+from openai import OpenAI
 st.write(f"OpenAI library version: {openai.__version__}")
 import os
 from io import StringIO
@@ -16,7 +17,7 @@ openai.api_version = "2023-05-15"
 
 # Fonction pour traiter le texte avec GPT
 def process_text_with_gpt(recognized_text):
-    client = openai(api_key=API_KEY)
+    client = OpenAI(api_key=API_KEY)
     responsegpt = client.chat.completions.create(
         engine="inetum-gpt-35-turbo-0613",
         messages=[
