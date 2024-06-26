@@ -1,5 +1,6 @@
 import streamlit as st
 import openai
+st.write(f"OpenAI library version: {openai.__version__}")
 import os
 from io import StringIO
 from PyPDF2 import PdfReader
