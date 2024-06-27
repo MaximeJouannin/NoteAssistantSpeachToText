@@ -54,7 +54,7 @@ def process_text_with_gpt(recognized_text):
                 {"role": "user", "content": recognized_text}
             ]
         )
-        text = responsegpt.choices[0].message['content']
+        text = responsegpt.choices[0].message.content
         st.write(f"GPT Response: {text}")
         return text
     except Exception as e:
