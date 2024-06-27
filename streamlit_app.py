@@ -106,4 +106,4 @@ st.write("Texte reconnu :", st.session_state.recognized_text)
 
 # Play the synthesized speech if available
 if st.session_state.synthesized_audio_file:
-    st.audio(st.session_state.synthesized_audio_file, format="audio/wav")
+    st.audio(st.session_state.synthesized_audio_file, format="audio/wav", start_time=0)
