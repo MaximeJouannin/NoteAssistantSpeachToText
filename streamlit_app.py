@@ -47,7 +47,7 @@ def process_and_synthesize_text(recognized_text):
 def process_text_with_gpt(recognized_text):
     try:
         client = AzureOpenAI(api_key=API_KEY, azure_endpoint=RESOURCE_ENDPOINT, api_version="2023-05-15")
-        responsegpt = client.chat.completions.create(
+        responsegpt = client.chat_completions.create(
             model="inetum-gpt-35-turbo-0613",
             messages=[
                 {"role": "system", "content": "You are an assistant. Answer in " + lang},
@@ -64,16 +64,22 @@ def process_text_with_gpt(recognized_text):
 def synthesize_speech(text):
     try:
         speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
-        audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
+        audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=False)  # Change to False to save to file
         synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
-        result = synthesizer.speak_text_async(text).get()
 
-        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            st.write("Synthèse vocale du texte réalisée pour : [{}]".format(text))
-        elif result.reason == speechsdk.ResultReason.Canceled:
-            cancellation_details = result.cancellation_details
-            if cancellation_details.reason == speechsdk.CancellationReason.Error:
-                st.write("Détails de l'erreur : {}".format(cancellation_details.error_details))
+        # Save to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            result = synthesizer.speak_text_async(text).get()
+
+            if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+                with open(tmp_file.name, "wb") as audio_file:
+                    audio_file.write(result.audio_data)
+                st.session_state.synthesized_audio_file = tmp_file.name
+                st.write("Synthèse vocale du texte réalisée pour : [{}]".format(text))
+            elif result.reason == speechsdk.ResultReason.Canceled:
+                cancellation_details = result.cancellation_details
+                if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                    st.write("Détails de l'erreur : {}".format(cancellation_details.error_details))
     except Exception as e:
         st.write(f"Error during speech synthesis: {e}")
 
@@ -99,3 +105,7 @@ if audio_bytes:
 
 # Display the recognized text
 st.write("Texte reconnu :", st.session_state.recognized_text)
+
+# Play the synthesized speech if available
+if 'synthesized_audio_file' in st.session_state:
+    st.audio(st.session_state.synthesized_audio_file, format="audio/wav")
