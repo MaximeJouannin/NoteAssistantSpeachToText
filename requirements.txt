@@ -12,5 +12,3 @@ soundfile
 matplotlib
 aiortc
 audio_recorder_streamlit
-ffmpeg
-libasound2-plugins
