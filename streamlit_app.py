@@ -47,7 +47,7 @@ def process_and_synthesize_text(recognized_text):
 def process_text_with_gpt(recognized_text):
     try:
         client = AzureOpenAI(api_key=API_KEY, azure_endpoint=RESOURCE_ENDPOINT, api_version="2023-05-15")
-        responsegpt = client.chat_completions.create(
+        responsegpt = client.chat.completions.create(
             engine="inetum-gpt-35-turbo-0613",
             messages=[
                 {"role": "system", "content": "You are an assistant. Answer in " + lang},
