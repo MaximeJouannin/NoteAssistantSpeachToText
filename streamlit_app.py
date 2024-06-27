@@ -1,18 +1,11 @@
 import streamlit as st
 import azure.cognitiveservices.speech as speechsdk
-import openai
-import queue
-import time
-import threading
+from openai import AzureOpenAI
 import re
 
 # Azure and OpenAI credentials
 API_KEY = "45597a66237d464faebe8745618f5717"
 RESOURCE_ENDPOINT = "https://inetum-open-ai-eastus.openai.azure.com/"
-openai.api_type = "azure"
-openai.api_key = API_KEY
-openai.api_base = RESOURCE_ENDPOINT
-openai.api_version = "2023-05-15"
 
 SPEECH_KEY = 'b48d398ec76644b985c461fd41e6df78'
 SPEECH_REGION = 'francecentral'
@@ -27,8 +20,7 @@ if 'processing_triggered' not in st.session_state:
     st.session_state.processing_triggered = False
 
 # Global variables
-text_queue = queue.Queue()
-stop_event = threading.Event()
+chunks = []
 
 def recognize_from_microphone_continuous():
     print("Starting continuous recognition...")
@@ -40,8 +32,9 @@ def recognize_from_microphone_continuous():
     recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
 
     def recognized_callback(evt):
+        global chunks
         if evt.result.reason == speechsdk.ResultReason.RecognizedSpeech:
-            text_queue.put(evt.result.text)
+            chunks.append(evt.result.text)
             print(f"Recognized: {evt.result.text}")
 
     def recognizing_callback(evt):
@@ -66,14 +59,18 @@ def recognize_from_microphone_continuous():
     recognizer.session_stopped.connect(session_stopped)
     recognizer.canceled.connect(canceled_callback)
 
-    recognizer.start_continuous_recognition_async()
-
+    recognizer.start_continuous_recognition()
     print("Recognition started and listening continuously...")
 
-    while not stop_event.is_set():
-        time.sleep(0.1)
+    while st.session_state.recognition_active:
+        if chunks:
+            for chunk in chunks:
+                st.session_state.recognized_text += f" {chunk}"
+                print(f"UI Updated with text: {chunk}")
+            chunks.clear()
+            st.experimental_rerun()
 
-    recognizer.stop_continuous_recognition_async().get()
+    recognizer.stop_continuous_recognition()
     print("Recognition stopped.")
 
 def process_and_synthesize_text(recognized_text):
@@ -83,28 +80,24 @@ def process_and_synthesize_text(recognized_text):
     synthesize_speech(processed_text)
 
 def start_recognition():
-    global stop_event
-    stop_event.clear()
     st.session_state.recognition_active = True
-    recognition_thread = threading.Thread(target=recognize_from_microphone_continuous)
-    recognition_thread.start()
+    recognize_from_microphone_continuous()
 
 def stop_recognition():
-    global stop_event
-    print("Stopping recognition...")
-    stop_event.set()
     st.session_state.recognition_active = False
+    st.experimental_rerun()
     print("Recognition stopped.")
 
 def process_text_with_gpt(recognized_text):
-    responsegpt = openai.ChatCompletion.create(
-        engine="inetum-gpt-35-turbo-0613",
+    client = AzureOpenAI(api_key=API_KEY, azure_endpoint=RESOURCE_ENDPOINT, api_version="2023-05-15")
+    responsegpt = client.chat.completions.create(
+        model="inetum-gpt-35-turbo-0613",
         messages=[
             {"role": "system", "content": "You are an assistant. Answer in " + lang},
             {"role": "user", "content": recognized_text}
         ]
     )
-    text = responsegpt['choices'][0]['message']['content']
+    text = responsegpt.choices[0].message.content
     print(f"GPT Response: {text}")
     return text
 
@@ -125,20 +118,12 @@ def synthesize_speech(text):
 # Streamlit UI
 st.title("Application de reconnaissance et de traitement vocal")
 
-if not st.session_state.recognition_active:
-    if st.button('Démarrer la reconnaissance'):
-        start_recognition()
-
 if st.session_state.recognition_active:
     if st.button('Arrêter la reconnaissance'):
         stop_recognition()
-
-# Mettre à jour l'interface utilisateur avec le texte reconnu
-if 'recognition_active' in st.session_state and st.session_state.recognition_active:
-    while not text_queue.empty():
-        text = text_queue.get()
-        st.session_state.recognized_text += f" {text}"
-        print(f"UI Updated with text: {text}")
+else:
+    if st.button('Démarrer la reconnaissance'):
+        start_recognition()
 
 if re.search(r"\blance le traitement\b", st.session_state.recognized_text, re.IGNORECASE) and not st.session_state.processing_triggered:
     st.session_state.processing_triggered = True
