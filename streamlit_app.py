@@ -47,7 +47,7 @@ def process_and_synthesize_text(recognized_text):
 def process_text_with_gpt(recognized_text):
     try:
         client = AzureOpenAI(api_key=API_KEY, azure_endpoint=RESOURCE_ENDPOINT, api_version="2023-05-15")
-        responsegpt = client.chat.completions.create(
+        responsegpt = client.chat_completions.create(
             model="inetum-gpt-35-turbo-0613",
             messages=[
                 {"role": "system", "content": "You are an assistant. Answer in " + lang},
@@ -62,17 +62,20 @@ def process_text_with_gpt(recognized_text):
         return "Error processing text with GPT"
 
 def synthesize_speech(text):
-    speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
-    audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
-    synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
-    result = synthesizer.speak_text_async(text).get()
+    try:
+        speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
+        audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
+        synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
+        result = synthesizer.speak_text_async(text).get()
 
-    if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-        st.write("Synthèse vocale du texte réalisée pour : [{}]".format(text))
-    elif result.reason == speechsdk.ResultReason.Canceled:
-        cancellation_details = result.cancellation_details
-        if cancellation_details.reason == speechsdk.CancellationReason.Error:
-            st.write("Détails de l'erreur : {}".format(cancellation_details.error_details))
+        if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
+            st.write("Synthèse vocale du texte réalisée pour : [{}]".format(text))
+        elif result.reason == speechsdk.ResultReason.Canceled:
+            cancellation_details = result.cancellation_details
+            if cancellation_details.reason == speechsdk.CancellationReason.Error:
+                st.write("Détails de l'erreur : {}".format(cancellation_details.error_details))
+    except Exception as e:
+        st.write(f"Error during speech synthesis: {e}")
 
 # Streamlit UI
 st.title("Application de reconnaissance et de traitement vocal")
