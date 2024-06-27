@@ -2,8 +2,8 @@ import streamlit as st
 from audio_recorder_streamlit import audio_recorder
 import azure.cognitiveservices.speech as speechsdk
 from openai import AzureOpenAI
+import re
 import tempfile
-import os
 
 # Azure and OpenAI credentials
 API_KEY = "45597a66237d464faebe8745618f5717"
@@ -45,17 +45,21 @@ def process_and_synthesize_text(recognized_text):
     synthesize_speech(processed_text)
 
 def process_text_with_gpt(recognized_text):
-    client = AzureOpenAI(api_key=API_KEY, azure_endpoint=RESOURCE_ENDPOINT, api_version="2023-05-15")
-    responsegpt = client.chat_completions.create(
-        engine="inetum-gpt-35-turbo-0613",
-        messages=[
-            {"role": "system", "content": "You are an assistant. Answer in " + lang},
-            {"role": "user", "content": recognized_text}
-        ]
-    )
-    text = responsegpt.choices[0].message['content']
-    st.write(f"GPT Response: {text}")
-    return text
+    try:
+        client = AzureOpenAI(api_key=API_KEY, azure_endpoint=RESOURCE_ENDPOINT, api_version="2023-05-15")
+        responsegpt = client.chat_completions.create(
+            engine="inetum-gpt-35-turbo-0613",
+            messages=[
+                {"role": "system", "content": "You are an assistant. Answer in " + lang},
+                {"role": "user", "content": recognized_text}
+            ]
+        )
+        text = responsegpt.choices[0].message['content']
+        st.write(f"GPT Response: {text}")
+        return text
+    except Exception as e:
+        st.write(f"Error processing text with GPT: {e}")
+        return "Error processing text with GPT"
 
 def synthesize_speech(text):
     speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
