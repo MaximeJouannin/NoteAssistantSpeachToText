@@ -23,6 +23,7 @@ if 'synthesized_audio_file' not in st.session_state:
 def recognize_audio_file(file_path):
     st.write(f"Recognizing audio file: {file_path}")
     speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
+    speech_config.speech_recognition_language  = lang
     audio_config = speechsdk.audio.AudioConfig(filename=file_path)
     recognizer = speechsdk.SpeechRecognizer(speech_config=speech_config, audio_config=audio_config)
     result = recognizer.recognize_once()
@@ -66,6 +67,7 @@ def process_text_with_gpt(recognized_text):
 def synthesize_speech(text):
     try:
         speech_config = speechsdk.SpeechConfig(subscription=SPEECH_KEY, region=SPEECH_REGION)
+        speech_config.speech_synthesis_language = lang
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
             audio_config = speechsdk.audio.AudioOutputConfig(filename=tmp_file.name)
             synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
