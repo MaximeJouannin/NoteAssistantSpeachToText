@@ -12,4 +12,3 @@ soundfile
 matplotlib
 aiortc
 audio_recorder_streamlit
-pymupdf

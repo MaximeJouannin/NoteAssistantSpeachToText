@@ -4,11 +4,11 @@ import azure.cognitiveservices.speech as speechsdk
 from openai import AzureOpenAI
 import re
 import tempfile
-import fitz  # PyMuPDF library for working with PDF files
 from io import BytesIO
 from docx import Document
 from pydub import AudioSegment
 import threading
+from PyPDF2 import PdfReader
 
 # Azure and OpenAI credentials
 API_KEY = "45597a66237d464faebe8745618f5717"
@@ -98,11 +98,12 @@ def read_docx(file):
 
 
 # Function to extract text from a PDF file
+# Fonction pour lire un fichier PDF
 def read_pdf(file):
-    doc = fitz.open(file.name)
+    pdf_reader = PdfReader(file)
     text = ""
-    for page in doc:
-        text += page.get_text()
+    for page in pdf_reader.pages:
+        text += page.extract_text()
     return text
 
 
