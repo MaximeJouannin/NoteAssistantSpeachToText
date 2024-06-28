@@ -149,18 +149,21 @@ def handle_inputs(Audio_fromMicrophone,text_input,uploaded_Audiofile,doc_file):
         result = speech_recognizer.recognize_once()
         # st.write("Texte reconnu : {}".format(result.text))
         combined_input.append('[Entrée fichier audio]\n\n' + result.text + '\n\n[Fin entrée audio]')
+           
             
     if doc_file:
+        text=""
         # Read the content of the uploaded file
-        file_extension = doc_file.name.split(".")[-1]
-        if file_extension == "txt":
-            text = doc_file.getvalue().decode("utf-8")
-        elif file_extension == "docx":
-            text = read_docx(doc_file)
-        elif file_extension == "pdf":
-            text = read_pdf(doc_file)
+        # Lecture et concaténation du contenu des fichiers
+        for uploaded_file in doc_file:
+            if uploaded_file.type == "text/plain":
+                text +=  uploaded_file.name +'\n'+ uploaded_file.read().decode("utf-8") + '\n\n'
+            elif uploaded_file.type == "application/pdf":
+                text += uploaded_file.name +'\n'+ read_pdf(uploaded_file) + "\n\n"
+            elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+                text += uploaded_file.name +'\n'+ read_docx(uploaded_file) + "\n\n"
         combined_input.append('[Entrée doc]\n\n' +text+'\n\n[Fin entrée doc]')
-
+        
     return '\n'.join(combined_input)
 
 def page1():
@@ -180,7 +183,7 @@ def page1():
     uploaded_Audiofile = st.file_uploader('Choisir un fichier audio :vhs:', type=["wav", "mp3"])
     
     # File uploaders for documents
-    uploaded_doc_file = st.file_uploader('Upload a document 📥', type=["txt", "docx", "pdf"])
+    uploaded_doc_file = st.file_uploader('Upload a document 📥', type=["txt", "docx", "pdf"], accept_multiple_files=True)
     
     combined_input = handle_inputs(audio_bytes,user_text_input,uploaded_Audiofile, uploaded_doc_file)
     edit_combined_text_input = st.text_area("Text combined:", value=combined_input,key="combined_text_input",height=200)
