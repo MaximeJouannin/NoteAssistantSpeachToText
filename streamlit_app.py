@@ -44,7 +44,7 @@ def recognize_audio_file(file_path):
 
 def process_and_synthesize_text(recognized_text):
     processed_text = process_text_with_gpt(recognized_text)
-    st.write("Réponse GPT :", processed_text)
+    #st.write("Réponse GPT :", processed_text)
     synthesize_speech(processed_text)
 
 def process_text_with_gpt(recognized_text):
@@ -75,7 +75,7 @@ def synthesize_speech(text):
 
             if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
                 st.session_state.synthesized_audio_file = tmp_file.name
-                st.write("Synthèse vocale du texte réalisée pour : [{}]".format(text))
+                #st.write("Synthèse vocale du texte réalisée pour : [{}]".format(text))
             elif result.reason == speechsdk.ResultReason.Canceled:
                 cancellation_details = result.cancellation_details
                 if cancellation_details.reason == speechsdk.CancellationReason.Error:
@@ -104,7 +104,7 @@ if audio_bytes:
         process_and_synthesize_text(st.session_state.recognized_text)
 
 # Display the recognized text
-st.write("Texte reconnu :", st.session_state.recognized_text)
+#st.write("Texte reconnu :", st.session_state.recognized_text)
 
 # Play the synthesized speech if available
 if st.session_state.synthesized_audio_file:
