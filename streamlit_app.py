@@ -194,7 +194,11 @@ def page1():
             process_and_synthesize_text(edit_combined_text_input)
         else:
             st.warning("Please provide some input.")
-
+            
+    # Play the synthesized speech if available
+    if st.session_state.synthesized_audio_file:
+        st.audio(st.session_state.synthesized_audio_file, format="audio/wav", autoplay=True)
+        
 def page2():
     # Streamlit UI
     st.subheader('')
