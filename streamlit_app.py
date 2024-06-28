@@ -147,7 +147,7 @@ def handle_inputs(uploaded_Audiofile,Audio_fromMicrophone,text_input,doc_file):
             recognized_text = recognize_audio_file(st.session_state.audio_file)
             st.session_state.recognized_text = recognized_text
             # process_and_synthesize_text(st.session_state.recognized_text)
-            combined_input.append(recognized_text.text)
+            combined_input.append(recognized_text)
 
         # Play the synthesized speech if available
         # if st.session_state.synthesized_audio_file:
