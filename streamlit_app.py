@@ -108,8 +108,26 @@ def read_pdf(file):
 
 
 # Function to handle different types of inputs and combine them
-def handle_inputs(uploaded_Audiofile,Audio_fromMicrophone,text_input,doc_file):
-    combined_input = []    
+def handle_inputs(Audio_fromMicrophone,text_input,uploaded_Audiofile,doc_file):
+    combined_input = []         
+    if Audio_fromMicrophone:
+        # Save the audio bytes to a temporary WAV file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
+            tmp_file.write(Audio_fromMicrophone)
+            st.session_state.audio_file = tmp_file.name
+
+        st.audio(Audio_fromMicrophone, format="audio/wav")
+        
+        if st.session_state.audio_file:
+            st.write(f"Processing audio file: {st.session_state.audio_file}")
+            recognized_text = recognize_audio_file(st.session_state.audio_file)
+            st.session_state.recognized_text = recognized_text
+            # process_and_synthesize_text(st.session_state.recognized_text)
+            combined_input.append('[Entrée vocale]\n\n'+ recognized_text +'\n\n[Fin entrée vocale ]')
+        
+    if text_input:
+        combined_input.append('[Entrée texte utilisateur]\n\n' + text_input + '\n\n[Fin entrée texte utilisateur]')
+    
     if uploaded_Audiofile:
         file_extension = uploaded_Audiofile.name.split(".")[-1]
         if file_extension == "mp3":
@@ -130,49 +148,8 @@ def handle_inputs(uploaded_Audiofile,Audio_fromMicrophone,text_input,doc_file):
 
         result = speech_recognizer.recognize_once()
         # st.write("Texte reconnu : {}".format(result.text))
-        combined_input.append(result.text)
-        
-       
-        
-    if Audio_fromMicrophone:
-        # Save the audio bytes to a temporary WAV file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_file:
-            tmp_file.write(Audio_fromMicrophone)
-            st.session_state.audio_file = tmp_file.name
-
-        st.audio(Audio_fromMicrophone, format="audio/wav")
-        
-        if st.session_state.audio_file:
-            st.write(f"Processing audio file: {st.session_state.audio_file}")
-            recognized_text = recognize_audio_file(st.session_state.audio_file)
-            st.session_state.recognized_text = recognized_text
-            # process_and_synthesize_text(st.session_state.recognized_text)
-            combined_input.append(recognized_text)
-
-        # Play the synthesized speech if available
-        # if st.session_state.synthesized_audio_file:
-        #     st.audio(st.session_state.synthesized_audio_file, format="audio/wav", autoplay=True)
-        
-        #     if st.session_state.recognized_text:
-        #         st.write("Texte reconnu :", st.session_state.recognized_text)
-        #         # process_and_synthesize_text(st.session_state.recognized_text)
-        #         st.session_state.recognized_text = ""
+        combined_input.append('[Entrée fichier audio]\n\n' + result.text + '\n\n[Fin entrée audio]')
             
-            
-            
-            
-            
-        
-        
-        
-        
-        
-        
-        
-        
-    if text_input:
-        combined_input.append(text_input)
-        
     if doc_file:
         # Read the content of the uploaded file
         file_extension = doc_file.name.split(".")[-1]
@@ -182,7 +159,7 @@ def handle_inputs(uploaded_Audiofile,Audio_fromMicrophone,text_input,doc_file):
             text = read_docx(doc_file)
         elif file_extension == "pdf":
             text = read_pdf(doc_file)
-        combined_input.append(text)
+        combined_input.append('[Entrée doc]\n\n' +text+'\n\n[Fin entrée doc]')
 
     return '\n'.join(combined_input)
 
@@ -195,31 +172,23 @@ def page1():
 
     # Record audio
     audio_bytes = audio_recorder(text="Click to record", pause_threshold=2.0)
-
-    # File uploader for audio files
-    uploaded_Audiofile = st.file_uploader('Choisir un fichier audio :vhs:', type=["wav", "mp3"])
     
     # Text input area for user to enter text
     user_text_input = st.text_area("Enter your text here:", key="text_input")
 
+    # File uploader for audio files
+    uploaded_Audiofile = st.file_uploader('Choisir un fichier audio :vhs:', type=["wav", "mp3"])
+    
     # File uploaders for documents
     uploaded_doc_file = st.file_uploader('Upload a document 📥', type=["txt", "docx", "pdf"])
-    combined_input = handle_inputs(uploaded_Audiofile,audio_bytes,user_text_input, uploaded_doc_file)
-
+    
+    combined_input = handle_inputs(audio_bytes,user_text_input,uploaded_Audiofile, uploaded_doc_file)
     edit_combined_text_input = st.text_area("Text combined:", value=combined_input,key="combined_text_input",height=200)
 
     # Button to trigger text processing
     if st.button("Generate Resume"):
-        
         if edit_combined_text_input:
-            st.write("Combined Input:")
-            st.write(edit_combined_text_input)
             process_and_synthesize_text(edit_combined_text_input)
-            
-            # Process combined input with OpenAI
-            # processed_text = process_and_synthesize_text(edit_combined_text_input)
-            # st.write("OpenAI Response:")
-            # st.write(processed_text)
         else:
             st.warning("Please provide some input.")
 
