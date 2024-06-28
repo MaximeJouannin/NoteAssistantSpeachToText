@@ -248,9 +248,7 @@ if audio_bytes:
 # Play the synthesized speech if available
 if st.session_state.synthesized_audio_file:
     st.audio(st.session_state.synthesized_audio_file, format="audio/wav", autoplay=True)
-    col1, col2 = st.columns(2)
-    col1.button('Démarrer la reconnaissance', on_click=start_recognition, disabled=st.session_state.show_stop_button)
-    col2.button('Arrêter la reconnaissance', on_click=stop_recognition, disabled=st.session_state.show_start_button)
+    
 
     if st.session_state.recognized_text:
         st.write("Texte reconnu :", st.session_state.recognized_text)
