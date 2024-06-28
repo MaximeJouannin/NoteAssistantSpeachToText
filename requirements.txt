@@ -3,5 +3,13 @@ pandas
 scikit-learn
 altair
 azure-cognitiveservices-speech
-openai
+openai==1.35.5
 pydub
+python-docx
+PyPDF2
+streamlit-webrtc
+soundfile
+matplotlib
+aiortc
+audio_recorder_streamlit
+pymupdf
