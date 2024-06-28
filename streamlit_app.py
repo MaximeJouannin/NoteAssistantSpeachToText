@@ -157,11 +157,7 @@ def page1():
     # Streamlit UI
     st.subheader('OpenAI Text Generation with Multiple Inputs')
         
-    # Record audio from Microphone
-    col1, col2 = st.columns(2)
-    col1.button('Démarrer la reconnaissance :red_circle:', on_click=start_recognition, disabled=st.session_state.show_stop_button)
-    col2.button('Arrêter la reconnaissance :white_square_button:', on_click=stop_recognition, disabled=st.session_state.show_start_button)
-
+   
     if st.session_state.recognized_text:
         st.write("Texte reconnu :", st.session_state.recognized_text)
         process_and_synthesize_text(st.session_state.recognized_text)
